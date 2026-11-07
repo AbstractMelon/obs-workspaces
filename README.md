@@ -1,3 +1,5 @@
+![Example Gif](./example.gif)
+
 # Dock Layouts for OBS Studio
 
 Named dock layout profiles for OBS Studio on Windows, macOS, and Linux.
