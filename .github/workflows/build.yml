@@ -107,6 +107,8 @@ jobs:
           cmake -S . -B build -G Ninja \
             -DCMAKE_BUILD_TYPE=RelWithDebInfo \
             -DCMAKE_PREFIX_PATH="$PWD/obs-install;$PWD/qt-deps" \
+            -Dlibobs_DIR="$PWD/obs-install/Frameworks/libobs.framework/Resources/cmake" \
+            -Dobs-frontend-api_DIR="$PWD/obs-install/lib/cmake/obs-frontend-api" \
             -DCMAKE_OSX_ARCHITECTURES=arm64 \
             -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0
 
@@ -184,7 +186,9 @@ jobs:
 
       - name: Test
         shell: pwsh
-        run: ctest --test-dir build -C RelWithDebInfo --output-on-failure
+        run: |
+          $env:PATH = "$PWD/qt-deps/bin;$PWD/obs-install/bin/64bit;$env:PATH"
+          ctest --test-dir build -C RelWithDebInfo --output-on-failure
 
       - name: Package
         shell: pwsh
