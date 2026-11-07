@@ -67,11 +67,12 @@ jobs:
         run: |
           mkdir -p obs-deps qt-deps
           curl -fsSL "https://github.com/obsproject/obs-deps/releases/download/${{ env.OBS_DEPS_VERSION }}/macos-deps-${{ env.OBS_DEPS_VERSION }}-arm64.tar.xz" -o deps.tar.xz
-          tar -xf deps.tar.xz -C obs-deps --strip-components=1
+          tar -xf deps.tar.xz -C obs-deps
           curl -fsSL "https://github.com/obsproject/obs-deps/releases/download/${{ env.OBS_DEPS_VERSION }}/macos-deps-qt6-${{ env.OBS_DEPS_VERSION }}-arm64.tar.xz" -o qt.tar.xz
-          tar -xf qt.tar.xz -C qt-deps --strip-components=1
+          tar -xf qt.tar.xz -C qt-deps
           ls obs-deps | head
           ls qt-deps | head
+          ls qt-deps/lib/cmake | head
 
       - name: Fetch OBS Studio source
         run: |
@@ -166,7 +167,7 @@ jobs:
             -DENABLE_VIRTUALCAM=OFF
           cmake --build obs-build --config RelWithDebInfo -j $env:NUMBER_OF_PROCESSORS
           cmake --install obs-build --config RelWithDebInfo --prefix obs-install
-          Get-ChildItem obs-install/lib/cmake
+          Get-ChildItem -Recurse obs-install | Select-Object -First 30
 
       - name: Configure
         shell: pwsh
