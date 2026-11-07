@@ -1,0 +1,239 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  OBS_VERSION: "31.1.1"
+  OBS_DEPS_VERSION: "2025-07-11"
+  CMAKE_BUILD_TYPE: RelWithDebInfo
+
+jobs:
+  linux:
+    name: Linux (x86_64)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake build-essential ninja-build pkg-config qt6-base-dev libobs-dev
+
+      - name: Configure
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=${{ env.CMAKE_BUILD_TYPE }}
+
+      - name: Build
+        run: cmake --build build -j
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+      - name: Package
+        run: |
+          cmake --install build --prefix package/obs-dock-layouts
+          tar -czf obs-dock-layouts-linux-x86_64.tar.gz -C package obs-dock-layouts
+          ls -lh obs-dock-layouts-linux-x86_64.tar.gz
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: obs-dock-layouts-linux-x86_64
+          path: obs-dock-layouts-linux-x86_64.tar.gz
+          if-no-files-found: error
+
+  macos:
+    name: macOS (arm64)
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install tools
+        run: |
+          brew install cmake ninja ccache
+          ccache --version
+
+      - name: Download obs-deps and Qt6
+        run: |
+          mkdir -p obs-deps qt-deps
+          curl -fsSL "https://github.com/obsproject/obs-deps/releases/download/${{ env.OBS_DEPS_VERSION }}/macos-deps-${{ env.OBS_DEPS_VERSION }}-arm64.tar.xz" -o deps.tar.xz
+          tar -xf deps.tar.xz -C obs-deps --strip-components=1
+          curl -fsSL "https://github.com/obsproject/obs-deps/releases/download/${{ env.OBS_DEPS_VERSION }}/macos-deps-qt6-${{ env.OBS_DEPS_VERSION }}-arm64.tar.xz" -o qt.tar.xz
+          tar -xf qt.tar.xz -C qt-deps --strip-components=1
+          ls obs-deps | head
+          ls qt-deps | head
+
+      - name: Fetch OBS Studio source
+        run: |
+          git clone --depth 1 --branch ${{ env.OBS_VERSION }} https://github.com/obsproject/obs-studio.git obs-src
+
+      - name: Build libobs and frontend API
+        run: |
+          cmake -S obs-src -B obs-build -G Ninja \
+            -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+            -DCMAKE_PREFIX_PATH="$PWD/obs-deps;$PWD/qt-deps" \
+            -DCMAKE_INSTALL_PREFIX="$PWD/obs-install" \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0 \
+            -DENABLE_UI=OFF \
+            -DENABLE_FRONTEND=OFF \
+            -DENABLE_SCRIPTING=OFF \
+            -DENABLE_BROWSER=OFF \
+            -DENABLE_HEVC=OFF \
+            -DENABLE_AJA=OFF \
+            -DENABLE_VLC=OFF \
+            -DENABLE_WEBSOCKET=OFF \
+            -DENABLE_VIRTUALCAM=OFF \
+            -DENABLE_SSE=OFF
+          cmake --build obs-build --target libobs obs-frontend-api -j
+          cmake --install obs-build --prefix obs-install
+          ls obs-install/lib/cmake | head -20
+
+      - name: Configure
+        run: |
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+            -DCMAKE_PREFIX_PATH="$PWD/obs-install;$PWD/qt-deps" \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0
+
+      - name: Build
+        run: cmake --build build -j
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+      - name: Package
+        run: |
+          cmake --install build --config Release --prefix release
+          ls release
+          ditto -c -k --sequesterRsrc --keepParent release/obs-dock-layouts.plugin obs-dock-layouts-macos-arm64.zip
+          ls -lh obs-dock-layouts-macos-arm64.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: obs-dock-layouts-macos-arm64
+          path: obs-dock-layouts-macos-arm64.zip
+          if-no-files-found: error
+
+  windows:
+    name: Windows (x64)
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download obs-deps and Qt6
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path obs-deps, qt-deps | Out-Null
+          curl.exe -fsSL "https://github.com/obsproject/obs-deps/releases/download/${{ env.OBS_DEPS_VERSION }}/windows-deps-${{ env.OBS_DEPS_VERSION }}-x64.zip" -o deps.zip
+          curl.exe -fsSL "https://github.com/obsproject/obs-deps/releases/download/${{ env.OBS_DEPS_VERSION }}/windows-deps-qt6-${{ env.OBS_DEPS_VERSION }}-x64.zip" -o qt.zip
+          Expand-Archive -Path deps.zip -DestinationPath obs-deps -Force
+          Expand-Archive -Path qt.zip -DestinationPath qt-deps -Force
+          Get-ChildItem obs-deps | Select-Object -First 10
+          Get-ChildItem qt-deps | Select-Object -First 10
+
+      - name: Fetch OBS Studio source
+        run: git clone --depth 1 --branch ${{ env.OBS_VERSION }} https://github.com/obsproject/obs-studio.git obs-src
+
+      - name: Build libobs and frontend API
+        shell: pwsh
+        run: |
+          cmake -S obs-src -B obs-build -G "Visual Studio 17 2022" -A x64 `
+            -DCMAKE_BUILD_TYPE=RelWithDebInfo `
+            -DCMAKE_PREFIX_PATH="$PWD/obs-deps;$PWD/qt-deps" `
+            -DCMAKE_INSTALL_PREFIX="$PWD/obs-install" `
+            -DENABLE_UI=OFF `
+            -DENABLE_FRONTEND=OFF `
+            -DENABLE_SCRIPTING=OFF `
+            -DENABLE_BROWSER=OFF `
+            -DENABLE_HEVC=OFF `
+            -DENABLE_AJA=OFF `
+            -DENABLE_VLC=OFF `
+            -DENABLE_WEBSOCKET=OFF `
+            -DENABLE_VIRTUALCAM=OFF
+          cmake --build obs-build --target libobs obs-frontend-api --config RelWithDebInfo -j $env:NUMBER_OF_PROCESSORS
+          cmake --install obs-build --config RelWithDebInfo --prefix obs-install
+          Get-ChildItem obs-install/lib/cmake
+
+      - name: Configure
+        shell: pwsh
+        run: |
+          cmake -S . -B build -G "Visual Studio 17 2022" -A x64 `
+            -DCMAKE_BUILD_TYPE=RelWithDebInfo `
+            -DCMAKE_PREFIX_PATH="$PWD/obs-install;$PWD/qt-deps"
+
+      - name: Build
+        shell: pwsh
+        run: cmake --build build --config RelWithDebInfo -j $env:NUMBER_OF_PROCESSORS
+
+      - name: Test
+        shell: pwsh
+        run: ctest --test-dir build -C RelWithDebInfo --output-on-failure
+
+      - name: Package
+        shell: pwsh
+        run: |
+          cmake --install build --config RelWithDebInfo --prefix package/obs-dock-layouts
+          Get-ChildItem -Recurse package/obs-dock-layouts | Select-Object -First 20
+          Compress-Archive -Path package/obs-dock-layouts -DestinationPath obs-dock-layouts-windows-x64.zip -Force
+          Get-ChildItem obs-dock-layouts-windows-x64.zip | Format-List *
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: obs-dock-layouts-windows-x64
+          path: obs-dock-layouts-windows-x64.zip
+          if-no-files-found: error
+
+  release:
+    name: Release
+    needs: [linux, macos, windows]
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: List artifacts
+        run: |
+          find dist -type f | sort
+          ls -lh dist/*/* || ls -lh dist/*
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ github.ref_name }}
+          files: |
+            dist/obs-dock-layouts-linux-x86_64/obs-dock-layouts-linux-x86_64.tar.gz
+            dist/obs-dock-layouts-macos-arm64/obs-dock-layouts-macos-arm64.zip
+            dist/obs-dock-layouts-windows-x64/obs-dock-layouts-windows-x64.zip
+          body: |
+            ## Dock Layouts ${{ github.ref_name }}
+
+            Named dock layout profiles for OBS Studio. Open **Docks -> Dock Layouts** in OBS.
+
+            ### Installation
+            1. Download the package for your platform.
+            2. Extract it into your OBS plugins folder.
+            3. Restart OBS.
+
+            - **Linux:** Extract `obs-dock-layouts-linux-x86_64.tar.gz` to `~/.config/obs-studio/plugins/` so you get `obs-dock-layouts/bin/64bit/`.
+            - **macOS:** Extract `obs-dock-layouts-macos-arm64.zip` to `~/Library/Application Support/obs-studio/plugins/`.
+            - **Windows:** Extract `obs-dock-layouts-windows-x64.zip` to `%APPDATA%\obs-studio\plugins\` so you get `obs-dock-layouts\bin\64bit\`.
+
+            Profiles are stored as JSON and can be backed up or copied between machines.
+          draft: false
+          prerelease: false

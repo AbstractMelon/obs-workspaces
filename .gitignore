@@ -2,3 +2,17 @@ build/
 build-*/
 cmake-build-*/
 .cache/
+package/
+release/
+dist/
+obs-src/
+obs-build/
+obs-install/
+obs-deps/
+qt-deps/
+deps.zip
+qt.zip
+deps.tar.xz
+qt.tar.xz
+*.tar.gz
+*.zip

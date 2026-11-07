@@ -40,9 +40,13 @@ The manager shows the exact folder at the bottom of the window.
 
 Portable OBS installations use the portable configuration directory instead.
 
-## Building
+## Releases
 
-There are no prebuilt binaries in this repository. Build the plugin on the operating system where it will run.
+Prebuilt packages are published as GitHub Releases.
+
+## Building from source
+
+Build the plugin on the operating system where it will run.
 
 ### Requirements
 
