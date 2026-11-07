@@ -99,6 +99,7 @@ jobs:
             -DENABLE_SSE=OFF
           cmake --build obs-build --config RelWithDebInfo -j
           cmake --install obs-build --config RelWithDebInfo --prefix obs-install
+          cmake --install obs-build --config RelWithDebInfo --prefix obs-install --component Development
           ls obs-install/lib/cmake | head -20
 
       - name: Configure
@@ -167,6 +168,7 @@ jobs:
             -DENABLE_VIRTUALCAM=OFF
           cmake --build obs-build --config RelWithDebInfo -j $env:NUMBER_OF_PROCESSORS
           cmake --install obs-build --config RelWithDebInfo --prefix obs-install
+          cmake --install obs-build --config RelWithDebInfo --prefix obs-install --component Development
           Get-ChildItem -Recurse obs-install | Select-Object -First 30
 
       - name: Configure
