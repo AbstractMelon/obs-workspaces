@@ -54,7 +54,7 @@ jobs:
 
   macos:
     name: macOS (arm64)
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
 
@@ -88,6 +88,7 @@ jobs:
             -DENABLE_UI=OFF \
             -DENABLE_FRONTEND=OFF \
             -DENABLE_SCRIPTING=OFF \
+            -DENABLE_PLUGINS=OFF \
             -DENABLE_BROWSER=OFF \
             -DENABLE_HEVC=OFF \
             -DENABLE_AJA=OFF \
@@ -156,6 +157,7 @@ jobs:
             -DENABLE_UI=OFF `
             -DENABLE_FRONTEND=OFF `
             -DENABLE_SCRIPTING=OFF `
+            -DENABLE_PLUGINS=OFF `
             -DENABLE_BROWSER=OFF `
             -DENABLE_HEVC=OFF `
             -DENABLE_AJA=OFF `
