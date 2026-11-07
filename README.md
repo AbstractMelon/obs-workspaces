@@ -2,12 +2,12 @@
 
 Named dock layout profiles for OBS Studio on Windows, macOS, and Linux.
 
-OBS only has a single window layout. This plugin adds a **Dock Layouts** menu so you can save the current docks and window geometry under a name, then switch between profiles with one click.
+OBS only has a single window layout. This plugin adds a **Dock Layouts** submenu under the **Docks** menu so you can save the current docks and window geometry under a name, then switch between profiles with one click.
 
 ## Features
 
 - Saves dock positions, sizes, visibility, floating state, tabs, and the main window size and position.
-- Switches profiles from the top-level Dock Layouts menu.
+- Switches profiles from **Docks -> Dock Layouts**.
 - Includes a small manager for saving, loading, renaming, and deleting profiles.
 - Warns before loading a profile that references docks which are not currently available.
 - Rolls back to the previous layout if a restore fails.
@@ -17,7 +17,7 @@ OBS only has a single window layout. This plugin adds a **Dock Layouts** menu so
 
 ## Usage
 
-After installing and restarting OBS, open the **Dock Layouts** menu in the menu bar.
+After installing and restarting OBS, open the **Docks -> Dock Layouts** menu.
 
 - **Save Current Layout...** prompts for a name and saves the current arrangement. Saving under an existing name asks before replacing it.
 - **A saved layout name** loads that layout immediately.

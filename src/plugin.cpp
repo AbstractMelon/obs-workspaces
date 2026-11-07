@@ -54,6 +54,14 @@ QString text(const char *key)
 	return QString::fromUtf8(obs_module_text(key));
 }
 
+QString menuTitle()
+{
+	const QString translated = text("Menu.Title");
+	if (translated.isEmpty() || translated == QStringLiteral("Menu.Title"))
+		return QStringLiteral("Dock Layouts");
+	return translated;
+}
+
 QString escapedMenuText(QString value)
 {
 	value.replace(QLatin1Char('&'), QLatin1String("&&"));
@@ -109,13 +117,19 @@ public:
 		if (!window_)
 			return;
 
-		menu_ = new QMenu(text("Menu.Title"), window_);
-		menu_->setObjectName(QStringLiteral("dockLayoutsMenu"));
-		connect(menu_, &QMenu::aboutToShow, this, [this] { rebuildMenu(); });
-
 		QMenuBar *menuBar = window_->menuBar();
-		QAction *before = nullptr;
-		if (menuBar) {
+		if (QMenu *docksMenu = findDocksMenu(menuBar)) {
+			attachSubmenu(docksMenu);
+		} else if (menuBar) {
+			// Fall back to a top-level menu if the Docks menu is not present.
+			const QString title = menuTitle();
+			menu_ = new QMenu(title, window_);
+			menu_->setObjectName(QStringLiteral("dockLayoutsMenu"));
+			if (QAction *action = menu_->menuAction())
+				action->setText(title);
+			connect(menu_, &QMenu::aboutToShow, this, [this] { rebuildMenu(); });
+
+			QAction *before = nullptr;
 			const auto actions = menuBar->actions();
 			for (int i = actions.size() - 1; i >= 0; --i) {
 				if (actions.at(i)->menu()) {
@@ -127,9 +141,7 @@ public:
 				menuBar->insertMenu(before, menu_);
 			else
 				menuBar->addMenu(menu_);
-		}
-
-		if (!menuBar) {
+		} else {
 			toolsAction_ = static_cast<QAction *>(
 				obs_frontend_add_tools_menu_qaction(obs_module_text("Menu.Manage")));
 			if (toolsAction_)
@@ -151,15 +163,85 @@ public:
 		dialog_ = nullptr;
 
 		if (menu_) {
-			if (window_ && window_->menuBar())
-				window_->menuBar()->removeAction(menu_->menuAction());
 			delete menu_;
 			menu_ = nullptr;
 		}
 
+		delete leadingSeparator_;
+		leadingSeparator_ = nullptr;
+		delete trailingSeparator_;
+		trailingSeparator_ = nullptr;
+
 		if (toolsAction_) {
 			delete toolsAction_;
 			toolsAction_ = nullptr;
+		}
+	}
+
+private:
+	QMenu *findDocksMenu(QMenuBar *menuBar)
+	{
+		if (!menuBar)
+			return nullptr;
+
+		for (QAction *action : menuBar->actions()) {
+			if (QMenu *menu = action->menu()) {
+				if (menu->objectName() == QStringLiteral("menuDocks"))
+					return menu;
+			}
+		}
+
+		for (QAction *action : menuBar->actions()) {
+			if (QMenu *menu = action->menu()) {
+				QString stripped = action->text();
+				stripped.remove(QLatin1Char('&'));
+				if (stripped == QStringLiteral("Docks"))
+					return menu;
+			}
+		}
+
+		return nullptr;
+	}
+
+	QMenu *findExistingSubmenu(QMenu *parent)
+	{
+		if (!parent)
+			return nullptr;
+		for (QAction *action : parent->actions()) {
+			if (QMenu *menu = action->menu()) {
+				if (menu->objectName() == QStringLiteral("dockLayoutsMenu"))
+					return menu;
+			}
+		}
+		return nullptr;
+	}
+
+	void attachSubmenu(QMenu *parent)
+	{
+		const QString title = menuTitle();
+		if (QMenu *existing = findExistingSubmenu(parent)) {
+			menu_ = existing;
+			menu_->setTitle(title);
+			if (QAction *action = menu_->menuAction())
+				action->setText(title);
+			connect(menu_, &QMenu::aboutToShow, this, [this] { rebuildMenu(); });
+			return;
+		}
+
+		menu_ = new QMenu(title, parent);
+		menu_->setObjectName(QStringLiteral("dockLayoutsMenu"));
+		if (QAction *action = menu_->menuAction())
+			action->setText(title);
+		connect(menu_, &QMenu::aboutToShow, this, [this] { rebuildMenu(); });
+
+		const auto actions = parent->actions();
+		if (!actions.isEmpty()) {
+			QAction *before = actions.first();
+			leadingSeparator_ = parent->insertSeparator(before);
+			parent->insertMenu(before, menu_);
+			trailingSeparator_ = parent->insertSeparator(before);
+		} else {
+			parent->addMenu(menu_);
 		}
 	}
 
@@ -489,6 +571,8 @@ private:
 	QString settingsPath_;
 	QString activePath_;
 	QPointer<QMenu> menu_;
+	QPointer<QAction> leadingSeparator_;
+	QPointer<QAction> trailingSeparator_;
 	QPointer<LayoutDialog> dialog_;
 	QPointer<QAction> toolsAction_;
 	bool shuttingDown_ = false;
