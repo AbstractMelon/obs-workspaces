@@ -79,7 +79,7 @@ jobs:
 
       - name: Build libobs and frontend API
         run: |
-          cmake -S obs-src -B obs-build -G Ninja \
+          cmake -S obs-src -B obs-build -G Xcode \
             -DCMAKE_BUILD_TYPE=RelWithDebInfo \
             -DCMAKE_PREFIX_PATH="$PWD/obs-deps;$PWD/qt-deps" \
             -DCMAKE_INSTALL_PREFIX="$PWD/obs-install" \
@@ -96,8 +96,8 @@ jobs:
             -DENABLE_WEBSOCKET=OFF \
             -DENABLE_VIRTUALCAM=OFF \
             -DENABLE_SSE=OFF
-          cmake --build obs-build --target libobs obs-frontend-api -j
-          cmake --install obs-build --prefix obs-install
+          cmake --build obs-build --config RelWithDebInfo -j
+          cmake --install obs-build --config RelWithDebInfo --prefix obs-install
           ls obs-install/lib/cmake | head -20
 
       - name: Configure
@@ -164,7 +164,7 @@ jobs:
             -DENABLE_VLC=OFF `
             -DENABLE_WEBSOCKET=OFF `
             -DENABLE_VIRTUALCAM=OFF
-          cmake --build obs-build --target libobs obs-frontend-api --config RelWithDebInfo -j $env:NUMBER_OF_PROCESSORS
+          cmake --build obs-build --config RelWithDebInfo -j $env:NUMBER_OF_PROCESSORS
           cmake --install obs-build --config RelWithDebInfo --prefix obs-install
           Get-ChildItem obs-install/lib/cmake
 
