@@ -108,5 +108,3 @@ cmake --install build --config Release ^
 ## Limitations
 
 - A profile restores docks that exist in the current OBS session. It does not create missing third-party docks.
-- A profile is not guaranteed to be portable between operating systems. Qt dock state is restored best-effort, and dock availability depends on installed plugins.
-- OBS still owns its startup layout. A profile is applied only when you select it.
